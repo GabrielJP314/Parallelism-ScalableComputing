@@ -8,82 +8,131 @@
 
 using namespace std;
 
-const int MAX_THREADS = 100;
-int numThreads = 1;
+const int MAX_THREADS = 100; // Maximum number of threads to use
+int numThreads = 1; // Number of threads to use
 
 struct WordCount
 {
-    int loveCount;
-    int hateCount;
+    int loveCount = 0;
+    int hateCount = 0;
 };
 
-// Função para processar um bloco de texto e contar ocorrências de "love" e "hate"
-void processBlock(const vector<string>& block, WordCount& localCount)
+vector<vector<string>> loadAndSplitFile(const string& filename)
 {
-    for (const auto& word : block) 
+    ifstream file(filename);
+    string line;
+    vector<string> block;
+    vector<vector<string>> blocks;
+    while (getline(file, line)) 
     {
-        if (word == "love")
+        if (line.empty()) 
         {
-            localCount.loveCount++;
-        } 
-        else if (word == "hate") 
+            continue;
+        }
+        block.push_back(line);
+        if (block.size() >= 1000) // We will split the file into blocks of 1000 lines each
         {
-            localCount.hateCount++;
+            // If the block is full, we add it to the list of blocks and clear it for the next block
+            blocks.push_back(block);
+            block.clear();
+        }
+    }
+    // If there are any remaining lines aka the file size is not a multiple of 1000
+    if (!block.empty()) 
+    {
+        blocks.push_back(block);
+    }
+    return blocks;
+}
+
+void processBlock(const vector<vector<string>>& blocks, int start, int end, WordCount& localCount)
+{
+    for (int i = start; i < end; ++i) 
+    {
+        for (const auto& line : blocks[i]) 
+        {
+            // This simplistic approach does not handle punctuation or case differences
+            if (line.find("love") != string::npos) // Checks if the substring "love" is present
+            {
+                localCount.loveCount++;
+            }
+            if (line.find("hate") != string::npos) // Checks if the substring "hate" is present
+            {
+                localCount.hateCount++;
+            }
         }
     }
 }
 
 int main() 
 {
-    string filename = "shakespeare.txt";
-    // Função para carregar o arquivo e dividir em blocos
-    vector<vector<string>> blocks = loadAndSplitFile(filename);
-
-    for (int i = 1; i <= MAX_THREADS; i++) 
+    // Loop through 
+    for (int i = 1; i <= MAX_THREADS; i++)
     {
-        numThreads = i;
-        int blockSize = blocks.size() / numThreads;
-        vector<thread> threads;
-        vector<WordCount> localCounts(numThreads);
 
-        auto startPrep = chrono::high_resolution_clock::now();
+    string filename = "shakespeare.txt";
 
-        for (int i = 0; i < numThreads; ++i) 
-        {
-            auto begin = blocks.begin() + i * blockSize;
-            auto end = (i == numThreads - 1) ? blocks.end() : begin + blockSize;
-            vector<string> block(begin, end);
+    // Load and split the file into blocks, and measure the time it takes
+    auto startPrep = chrono::high_resolution_clock::now();
+    vector<vector<string>> blocks = loadAndSplitFile(filename);
+    auto endPrep = chrono::high_resolution_clock::now();
+    auto prepTime = chrono::duration_cast<chrono::milliseconds>(endPrep - startPrep);
 
-            threads.emplace_back([&, i, block]() 
-            {
-                processBlock(block, localCounts[i]);
-            });
-        }
+    if(blocks.empty()) {
+        cout << "No data loaded or file is empty.\n";
+        return 1;
+    }
 
-        for (auto& thread : threads) 
-        {
-            thread.join();
-        }
+    /*
+    // After removing the for change this i to MAX_THREADS
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    ###############
+    */
+    numThreads = min(i, static_cast<int>(blocks.size()));
+    vector<thread> threads;
+    vector<WordCount> localCounts(numThreads);
+    int blockSize = blocks.size() / numThreads;
 
-        auto endPrep = chrono::high_resolution_clock::now();
-        auto prepTime = chrono::duration_cast<chrono::milliseconds>(endPrep - startPrep);
+    
+    auto startSearch = chrono::high_resolution_clock::now();
+    for (int i = 0; i < numThreads; ++i) 
+    {   
+        int start = i * blockSize;
+        int end = (i == numThreads - 1) ? blocks.size() : (i + 1) * blockSize;
+        threads.emplace_back(processBlock, std::cref(blocks), start, end, std::ref(localCounts[i]));
+    }
 
-        WordCount totalCount;
-        for (const auto& count : localCounts) 
-        {
-            totalCount.loveCount += count.loveCount;
-            totalCount.hateCount += count.hateCount;
-        }
+    for (auto& thread : threads) 
+    {
+        thread.join();
+    }
+    auto endSearch = chrono::high_resolution_clock::now();
+    auto execTime = chrono::duration_cast<chrono::milliseconds>(endSearch - startSearch);
 
-        auto startSearch = chrono::high_resolution_clock::now();
 
+    WordCount totalCount;
+    for (const auto& count : localCounts) 
+    {
+        totalCount.loveCount += count.loveCount;
+        totalCount.hateCount += count.hateCount;
+    }
+        
         // A partir daqui, você pode realizar mais processamento, se necessário.
-       
-        auto endSearch = chrono::high_resolution_clock::now();
-        auto execTime = chrono::duration_cast<chrono::milliseconds>(endSearch - startSearch);
+
 
         auto totalTime = prepTime + execTime;
 
+        
         cout << "Número de threads: " << numThreads << endl;
         cout << "Tamanho do bloco de cada thread: " << blocks.size() / numThreads << endl;
         cout << "Tempo de preparação: " << prepTime.count() << " ms" << endl;
@@ -92,21 +141,34 @@ int main()
         cout << "Ocorrências de 'love': " << totalCount.loveCount << endl;
         cout << "Ocorrências de 'hate': " << totalCount.hateCount << endl;
 
+        int most_used;
+
         if (totalCount.loveCount > totalCount.hateCount) 
         {
             cout << "Palavra mais utilizada: 'love'" << endl;
+            most_used = 1;
         } 
         else if (totalCount.loveCount < totalCount.hateCount) 
         {
             cout << "Palavra mais utilizada: 'hate'" << endl;
+            most_used = 0;
         } 
         else 
         {
             cout << "Ambas as palavras foram utilizadas igualmente." << endl;
+            most_used = 2;
         }
 
         cout << "-----------------------------" << endl;
+
+
+        // Write the results to a file
+        ofstream outfile;
+        outfile.open("saida.txt", ios::app);
+        outfile << numThreads << ";" <<  blocks.size() / numThreads << ";" << prepTime.count() << ";" << execTime.count() << ";" << totalTime.count() << ";" << totalCount.loveCount << ";" << totalCount.hateCount << ";"<< most_used << endl;
+        outfile.close();
+
+        }
+        return 0;
     }
 
-    return 0;
-}
