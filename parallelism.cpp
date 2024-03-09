@@ -83,21 +83,6 @@ int main()
         return 1;
     }
 
-    /*
-    // After removing the for change this i to MAX_THREADS
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    ###############
-    */
     numThreads = min(i, static_cast<int>(blocks.size()));
     vector<thread> threads;
     vector<WordCount> localCounts(numThreads);
