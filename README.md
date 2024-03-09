@@ -1,9 +1,11 @@
 # Parallelism-ScalableComputing
 
-Para rodar a aplicação:
+## Informações para executar a aplicação:
 
-- Clone o repositório com "git clone https://github.com/GabrielJP314/Parallelism-ScalableComputing"
-- Compile o arquivo parallelism.cpp
-- Rode o executável gerado
+- Compile o arquivo parallelism.cpp executando o seguinte comando em seu terminal:
 
-Todos os arquivos necessários para rodar o programa já estão no repositório.
+  ```g++ -o main parallelism.cpp```
+  
+- Rode o executável gerado com o comando abaixo:
+
+  ```.\parallelism.exe```
